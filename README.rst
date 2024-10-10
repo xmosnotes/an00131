@@ -1,8 +1,8 @@
 :orphan:
 
-##############################
-an00131: USB CDC-ECM Class for Ethernet over USB
-##############################
+################################################
+AN00131: USB CDC-ECM Class for Ethernet over USB
+#################################################
 
 :vendor: XMOS
 :version: 1.0.0
