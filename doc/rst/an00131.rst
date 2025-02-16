@@ -219,8 +219,6 @@ Looking at this in a more detail you can see the following:
 
   - The endpoint type tables discussed earlier are passed into the function ``XUD_Main()``.
 
-|newpage|
-
 Configuring the USB Device ID
 .............................
 
@@ -232,7 +230,6 @@ case `XMOS`) and the product plus the firmware version.
    :start-at: USB CDC device
    :end-before: USB Sub class
 
-|newpage|
 
 USB Descriptors
 ...............
@@ -249,7 +246,6 @@ The following figure shows the descriptors used in the example code.
 
    USB descriptors hierarchical structure of CDC-ECM example
 
-|newpage|
 
 USB Device Descriptor
 ~~~~~~~~~~~~~~~~~~~~~
@@ -280,7 +276,6 @@ the related descriptors are returned to the host. The following code shows the c
 hierarchy of the demo application.
 
 .. literalinclude:: ../../app_an00131/src/xud_ecm.xc
-   :largelisting:
    :start-at: USB Configuration Descriptor
    :end-at: }
 
@@ -310,7 +305,6 @@ host.
 The above code from the endpoint descriptors shows that the maximum packet size of these endpoints
 to be 512 bytes (`0x200`) which is suited for handling Ethernet frames in less number of transactions.
 
-|newpage|
 
 USB CDC-ECM Functional Descriptors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -376,7 +370,6 @@ device. The descriptors are placed in an array as shown in the below code.
 The `XMOS` USB library will take care of encoding the strings into Unicode and structures the
 content into USB string descriptor format.
 
-|newpage|
 
 USB Standard and Class-Specific requests
 ........................................
@@ -388,7 +381,6 @@ In *Endpoint0()* function, a USB request is received as a setup packet by callin
 The XMOS USB library provides a function *USB_StandardRequests()* to handle all the standard USB requests. This function is called with setup packet and descriptors structures as shown below
 
 .. literalinclude:: ../../app_an00131/src/xud_ecm.xc
-   :largelisting:
    :start-at: /* Returns  XUD_RES_OKAY if handled okay,
    :end-at: }
 
@@ -424,7 +416,6 @@ The Data Class interface containing the bulk endpoints is used for exchanging Et
 To handle asynchronous communication over two endpoints, events are used by means of select statements as shown in the following piece of code from *CdcEcmEndpointsHandler()* task.
 
 .. literalinclude:: ../../app_an00131/src/xud_ecm.xc
-   :largelisting:
    :start-at: select
    :end-before: /* Case handlers for CDC ECM
 
@@ -550,8 +541,6 @@ enumerated on your machine and you will see the following text in the console wi
   Server IP Address: 169.254.85.85
   Server URL: http://xmos-cdc.local
 
-|newpage|
-
 Running the demo
 ................
 
@@ -592,8 +581,6 @@ loaded. This host driver emulates the virtual Ethernet interface.
   - Refresh the opened webpage to see the packets count updated. Also note the number of ICMP
     packets is same as the number of ping requests sent out previously.
 
-|newpage|
-
 References
 ----------
 
@@ -608,9 +595,6 @@ References
 
   * `XMOS application build and dependency management system; xcommon-cmake
     <https://www.xmos.com/file/xcommon-cmake-documentation/?version=latest>`_
-
-  * `USB 2.0 Specification
-    <http://www.usb.org/developers/docs/usb20_docs/usb_20_081114.zip>`_
 
   * `USB CDC Class Specification, USB.org:
     <https://www.usb.org/sites/default/files/CDC1.2_WMC1.1_012011.zip>`_
