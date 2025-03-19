@@ -527,7 +527,7 @@ build system as bundled with the XTC tools.
 
 To configure the build run the following from an XTC command prompt::
 
-    cd AN00131_video_class
+    cd an00131
     cmake -G "Unix Makefiles" -B build
 
 If any dependencies are missing it is at this configure step that they will be downloaded by the build system.
@@ -553,7 +553,7 @@ From the command line the ``xrun`` tool is used to download code to both the
 xCORE devices. Changing into the bin directory of the project
 we can execute the code on the `xcore` device as follows::
 
-    xrun --xscope app_usb_ecm.xe
+    xrun --xscope app_usb_cdc_edc.xe
 
 Once this command has executed the CDC Ethernet device should have
 enumerated on your machine and you will see the following text in the console window::
