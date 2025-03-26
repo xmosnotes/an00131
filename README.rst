@@ -5,7 +5,7 @@ AN00131: USB CDC-ECM Class for Ethernet over USB
 ################################################
 
 :vendor: XMOS
-:version: 1.0.0
+:version: 3.0.0
 :scope: Example
 :description: An example that runs a Ethernet over USB
 :category: General Purpose
@@ -32,12 +32,12 @@ Known Issues
 Required Tools
 **************
 
-  * XMOS XTC Tools: 15.3.0
+  * XMOS XTC Tools: 15.3.1
 
 Required Libraries (Dependencies)
 *********************************
 
-  * lib_xud
+  * `lib_xud <https://www.xmos.com/file/lib_xud>`_
 
 Related Notes
 *************
