@@ -11,8 +11,9 @@ the standard USB Communications Device Class (CDC) and the Ethernet Control Mode
 Subclass on an `XMOS` device.
 
 The code associated with this application note provides an example of
-using the XMOS USB Device Library (``lib_xud``) and associated USB class descriptors
-to provide a framework for the creation of a USB device emulating Ethernet.
+using the XMOS USB Device Library (`lib_xud <https://www.xmos.com/file/lib_xud>`_)
+and associated USB class descriptors to provide a framework for the creation of a
+USB device emulating Ethernet.
 
 This example USB CDC-ECM implementation provides an emulated Ethernet interface
 running over high speed USB. It supports the standard requests associated with ECM model
@@ -31,7 +32,7 @@ device.
 
 .. note::
 
-    his application note provides a standard USB CDC-ECM class device and as a
+    This application note provides a standard USB CDC-ECM class device and as a
     result does not require external drivers to run on Linux and macOS. Windows doesn't support
     USB ECM model natively and thus requires third party drivers.
 
@@ -43,8 +44,8 @@ on the `XK-EVK-XU316` board but there is no dependency on this board and it can 
 modified to run on any development board which uses an `xcore-200` or `xcore.ai` series device.
 
 
-  - This document assumes familiarity with the `XMOS xcore` architecture, the Universal Serial Bus
-    2.0 Specification (and related specifications, the `XMOS` tool chain and the xC language.
+  - This document assumes familiarity with the `XMOS xCORE` architecture, the Universal Serial Bus
+    2.0 Specification and related specifications, the `XMOS` tool chain and the xC language.
     Documentation related to these aspects which are not specific to this application note are
     linked to in the references appendix.
 
@@ -534,20 +535,20 @@ Launching the demo application
 
 Once the demo example has been built the application can be executed on the `XK-EVK-XU316`.
 
-Once built there will be a ``bin`` directory within the project which contains the binary for the
-`xcore` device. The `xcore` binary has a `XMOS` standard .xe extension.
+Once built there will be a ``bin`` directory within ``app_an00131`` which contains the binary for the
+`xCORE` device. The `xCORE` binary has a `XMOS` standard .xe extension.
 
 Launching from the command line
 -------------------------------
 
-From the command line the ``xrun`` tool is used to download code to both the
-xCORE devices. Changing into the bin directory of the project
-we can execute the code on the `xcore` device as follows::
+From the command line the ``xrun`` tool is used to download and run the code on the xCORE device.
+In a terminal with XTC tools sourced, from the ``app_an00131/bin`` directory, run::
 
     xrun --xscope app_usb_cdc_edc.xe
 
-Once this command has executed the CDC Ethernet device should have
-enumerated on your machine and you will see the following text in the console window::
+Once this command has executed the application will be running on the xCORE device.
+
+The CDC Ethernet device should have enumerated on the host machine and the following text should be in the console window::
 
   --XMOS USB CDC-ECM Class demo--
 
@@ -570,24 +571,34 @@ loaded. This host driver emulates the virtual Ethernet interface.
 Run the command ``ip a`` in a terminal to view the emulated Ethernet interface among the list of
 available network interfaces. To know which is the XMOS emulated interface, run this command before
 and after connecting the device and see the extra interface that appears.
-:numref:`ip_a_output` shows the emulated Ethernet interface showing up on a Linux host machine::
+The emulated interface showing up on a Linux host machine in the ``ip a`` output should look similar to the following::
 
-.. _ip_a_output:
-.. figure:: ../images/eth_link_up_ipv4.png
-  :scale: 100%
-  :align: center
+  8: enx00229708a003: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UNKNOWN group default qlen 1000
+    link/ether 00:22:97:08:a0:03 brd ff:ff:ff:ff:ff:ff
+    inet 169.254.170.170/16 brd 169.254.255.255 scope global dynamic enx00229708a003
+       valid_lft 230sec preferred_lft 230sec
+    inet6 fe80::222:97ff:fe08:a003/64 scope link
+       valid_lft forever preferred_lft forever
 
-  Emulated Ethernet interface in the host PC
 
 Run ``ping 169.254.85.85`` command to ping the server running in the USB device. This ping
-command sends ICMP request packets to the server and it is shown in :numref:`ping_output`
+command sends ICMP request packets to the server and the output should look as follows::
 
-.. _ping_output:
-.. figure:: ../images/ping_output.png
-   :align: center
-   :scale: 100%
+  xmos@sw-hw-eth-ubu0:~$ ping 169.254.85.85
+  PING 169.254.85.85 (169.254.85.85) 56(84) bytes of data.
+  64 bytes from 169.254.85.85: icmp_seq=1 ttl=64 time=0.211 ms
+  64 bytes from 169.254.85.85: icmp_seq=2 ttl=64 time=0.153 ms
+  64 bytes from 169.254.85.85: icmp_seq=3 ttl=64 time=0.152 ms
+  64 bytes from 169.254.85.85: icmp_seq=4 ttl=64 time=0.165 ms
+  64 bytes from 169.254.85.85: icmp_seq=5 ttl=64 time=0.146 ms
+  64 bytes from 169.254.85.85: icmp_seq=6 ttl=64 time=0.188 ms
+  64 bytes from 169.254.85.85: icmp_seq=7 ttl=64 time=0.089 ms
+  64 bytes from 169.254.85.85: icmp_seq=8 ttl=64 time=0.185 ms
+  64 bytes from 169.254.85.85: icmp_seq=9 ttl=64 time=0.330 ms
+  ^C
+  --- 169.254.85.85 ping statistics ---
+  9 packets transmitted, 9 received, 0% packet loss, time 8185ms
 
-   Pinging server from host PC
 
 Open the URL *http://xmos-cdc.local* in a standard web browser like Mozilla or Chrome to
 see the web page hosted by the USB device. The web page provides a statistics of the packets handled by the USB device
@@ -609,43 +620,35 @@ Troubleshooting
 If the host cannot ping the xCORE device, potential problems could be:
 
 - Link is down for the XMOS network.
-  Run ``ip a`` and ensure that the link is up for the XMOS emulated network. :numref:`link_state_down` shows an
-  example ``ip a`` output when the link is down.
+  Run ``ip a`` and ensure that the link is up for the XMOS emulated network.
+  ``ip a`` output when the link state is down looks similar to::
 
-.. _link_state_down:
-.. figure:: ../images/eth_link_down.png
-   :align: center
-   :scale: 100%
-
-   Ethernet interface with link down
+    8: enx00229708a003: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
+    link/ether 00:22:97:08:a0:03 brd ff:ff:ff:ff:ff:ff
 
 If the link is down, run ``ip link set <interface_name> up`` command to change this.
 
 - The XMOS network shows up with an IPV6 address.
-  The ``ip a`` output might look as shown in :numref:`eth_link_ipv6`
+  The ``ip a`` output might look similar to::
 
-.. _eth_link_ipv6:
-.. figure:: ../images/eth_link_up_ipv6.png
-   :align: center
-   :scale: 100%
-
-   Ethernet interface with IPV6 address
+    8: enx00229708a003: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UNKNOWN group default qlen 1000
+    link/ether 00:22:97:08:a0:03 brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::222:97ff:fe08:a003/64 scope link
+       valid_lft forever preferred_lft forever
 
 Restart DHCP to fix this::
 
   sudo dhclient -r
   sudo dhclient <interface_name>
 
-Run ``ip a`` to ensure that the XMOS Ethernet interface has an IPV4 address assigned to it, similar
-to what's shown in :numref:`eth_link_ipv4`
+Run ``ip a`` to ensure that the XMOS Ethernet interface has an IPV4 address assigned to it, similar to::
 
-.. _eth_link_ipv4:
-.. figure:: ../images/eth_link_up_ipv4.png
-  :scale: 100%
-  :align: center
-
-  Ethernet interface with IPV4 address
-
+  8: enx00229708a003: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UNKNOWN group default qlen 1000
+    link/ether 00:22:97:08:a0:03 brd ff:ff:ff:ff:ff:ff
+    inet 169.254.170.170/16 brd 169.254.255.255 scope global dynamic enx00229708a003
+       valid_lft 230sec preferred_lft 230sec
+    inet6 fe80::222:97ff:fe08:a003/64 scope link
+       valid_lft forever preferred_lft forever
 
 ***************
 Further reading
