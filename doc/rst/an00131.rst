@@ -528,7 +528,7 @@ Finally, the application binary can be built using ``xmake``::
 
     xmake -C build
 
-This command will cause a binary (app_usb_cdc_edc.xe file) to be generated in the `bin` directory,
+This command will cause a binary (app_usb_cdc_edc.xe file) to be generated in the `app_an00131/bin` directory,
 
 Launching the demo application
 ==============================
