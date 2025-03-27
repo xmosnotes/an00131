@@ -1,4 +1,4 @@
-// Copyright 2015-2021 XMOS LIMITED.
+// Copyright 2015-2025 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 #include <xs1.h>
@@ -334,9 +334,6 @@ void CdcEcmEndpointsHandler(chanend c_epint_in, chanend c_epbulk_out, chanend c_
 
     /* TODO: Interrupt endpoint to report network state (if required) */
 
-    /* Just to keep compiler happy */
-    epint_in = epint_in;
-
     /* Initialize the Queues and Buffers */
     qInit(toHostQ);
     qInit(toDevQ);
@@ -346,6 +343,15 @@ void CdcEcmEndpointsHandler(chanend c_epint_in, chanend c_epbulk_out, chanend c_
     outBufId = packetBufferAlloc();
     outLen = 0;
     XUD_SetReady_Out(epbulk_out, (packetBuffer[outBufId], unsigned char[])); // Re-interpret int buffer to char buffer
+
+    unsigned char ack_connected[8] = {
+        0xA1,
+        NETWORK_CONNECTION,
+        0, 1, // wValue int16 "Connected: yes"
+        0, 1, // wIndex int16 "Interface: 1"
+        0, 0, // wLength int16 "No data"
+    };
+    XUD_SetReady_In(epint_in, ack_connected, 8);
 
     while(1)
     {
