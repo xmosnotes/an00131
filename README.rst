@@ -9,7 +9,7 @@ AN00131: USB CDC-ECM Class for Ethernet over USB
 :scope: Example
 :description: An example that runs a Ethernet over USB
 :category: General Purpose
-:keywords: USB, Ethernet, CDC, Webserber
+:keywords: USB, Ethernet, Webserver
 :hardware: XK-EVK-XU316
 
 ********
