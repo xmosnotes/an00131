@@ -4,7 +4,7 @@ an_number: an00131
 an_number_upper: AN00131
 project: '{{an_number}}'
 title: '{{an_number_upper}}: USB CDC-ECM Class for Ethernet over USB'
-version: 3.0.0
+version: 3.1.0
 
 documentation:
   exclude_patterns_path: doc/exclude-patterns.inc
