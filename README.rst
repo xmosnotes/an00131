@@ -5,7 +5,7 @@ AN00131: USB CDC-ECM Class for Ethernet over USB
 ################################################
 
 :vendor: XMOS
-:version: 3.0.0
+:version: 3.1.0
 :scope: Example
 :description: An example that runs a Ethernet over USB
 :category: General Purpose
@@ -18,37 +18,38 @@ Overview
 
 This app note shows how to implement the *CDC-ECM* class on USB, which
 supports emulation of ethernet interfaces over USB. In this example
-document we show how to run a web-server over USB on an XCORE chip.
+document we show how to run a web-server over USB on an `xcore` device.
 
 ************
 Key features
 ************
 
-  * USB-CDC-ECM
+* USB Communications Device Class (CDC)
+* Ethernet Control Model (ECM)
 
 ************
 Known issues
 ************
 
-  * None
+* None
 
 **************
 Required tools
 **************
 
-  * XMOS XTC Tools: 15.3.1
+* XMOS XTC Tools: 15.3.1
 
 *********************************
 Required libraries (dependencies)
 *********************************
 
-  * `lib_xud <https://www.xmos.com/file/lib_xud>`_
+* `lib_xud <https://www.xmos.com/file/lib_xud>`_
 
 *************
 Related notes
 *************
 
-  * None
+* None
 
 *******
 Support

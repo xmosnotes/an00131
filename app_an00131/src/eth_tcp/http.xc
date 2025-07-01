@@ -32,8 +32,8 @@ th, td {\r\n\
 <h2>XMOS USB CDC Ethernet Control Model Class demo</h1>\r\n\
 \
 <p>This is a demo of the XMOS USB CDC ECM class device implemented using the XMOS USB library.\r\n\
-CDC ECM model specification enables Ethernet over USB. This web page is hosted by xCORE-USB \r\n\
-sliceKIT that has enumerated as USB CDC ECM device in this host machine and trasmitting and \r\n\
+CDC ECM model specification enables Ethernet over USB. This web page is hosted by an xcore \r\n\
+that has enumerated as USB CDC ECM device in this host machine and trasmitting and \r\n\
 receiving Ethernet frames over USB endpoints.</p>\r\n\
 \
 <h3>Network Packets statistics</h2>\r\n\
