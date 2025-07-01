@@ -5,7 +5,7 @@ AN00131: USB CDC-ECM Class for Ethernet over USB
 ################################################
 
 :vendor: XMOS
-:version: 3.0.0
+:version: 3.1.0
 :scope: Example
 :description: An example that runs a Ethernet over USB
 :category: General Purpose
