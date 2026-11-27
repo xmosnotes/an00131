@@ -6,69 +6,105 @@
 #include <string.h>
 #include <stdio.h>
 #include "femtoTCP.h"
-#include "queue.h"
-#include "packet_buffer.h"
+#include "gpio.h"
 
-#define STRLEN 16
+/* The demo TCP stack sends each response as a single TCP segment, so the whole
+ * response must fit in one Ethernet frame:
+ * 1514 - 14 (Ethernet header) - 20 (IP header) - 20 (TCP header) = 1460 bytes */
+#define HTTP_MAX_RESPONSE   1460
 
-unsigned char html_buffer[1350];
-unsigned char html_data[] = "HTTP/1.0 200 OK\r\nContent-Length: 1181\r\n\r\n\
-<!DOCTYPE html>\r\n\
-<html>\r\n\
-<head>\r\n\
-<style>\r\n\
-table, th, td {\r\n\
-    border: 1px solid black;\r\n\
-    border-collapse: collapse;\r\n\
-}\r\n\
-th, td {\r\n\
-    padding: 15px;\r\n\
-}\r\n\
-</style>\r\n\
-</head>\r\n\
-\
-<body>\r\n\
-\
-<h2>XMOS USB CDC Ethernet Control Model Class demo</h1>\r\n\
-\
-<p>This is a demo of the XMOS USB CDC ECM class device implemented using the XMOS USB library.\r\n\
-CDC ECM model specification enables Ethernet over USB. This web page is hosted by an xcore \r\n\
-that has enumerated as USB CDC ECM device in this host machine and trasmitting and \r\n\
-receiving Ethernet frames over USB endpoints.</p>\r\n\
-\
-<h3>Network Packets statistics</h2>\r\n\
-<table>\r\n\
-  <tr><td>Total Number of packets received: </td><td>%u</td></tr>\r\n\
-  <tr><td>Total Number of packets transmitted: </td><td>%u</td></tr>\r\n\
-  <tr><td>Number of ARP packets received: </td><td>%u</td></tr>\r\n\
-  <tr><td>Number of TCP packets received: </td><td>%u</td></tr>\r\n\
-  <tr><td>Number of UDP packets received: </td><td>%u</td></tr>\r\n\
-  <tr><td>Number of ICMP packets received: </td><td>%u</td></tr>\r\n\
-  <tr><td>Total Number of bytes received: </td><td>%u</td></tr>\r\n\
-  <tr><td>Total Number of bytes transmitted: </td><td>%u</td></tr>\r\n\
-</table>\r\n\
-</body>\r\n\
-</html>\r\n";
+/* Number of bytes of the request line that are examined, e.g. "GET /?led=15 " */
+#define REQ_LEN             32
 
-void httpProcess(unsigned int packet[], int charOffset, int packetLength, unsigned int rsp_packet[], unsigned &rsp_len) {
-    char string[STRLEN];
-    char length[6];
-    for(int i = 0; i < packetLength && i < STRLEN; i++) {
-        string[i] = (packet, unsigned char[])[charOffset + i];
+static char body[HTTP_MAX_RESPONSE];
+static char response[HTTP_MAX_RESPONSE + 1];
+static unsigned bodyLen;
+
+/* Append formatted text to the page body, truncating if it does not fit */
+#define APPEND(...) \
+    do { \
+        int n = snprintf(body + bodyLen, sizeof(body) - bodyLen, __VA_ARGS__); \
+        if (n > 0) bodyLen += n; \
+        if (bodyLen >= sizeof(body)) bodyLen = sizeof(body) - 1; \
+    } while (0)
+
+static void buildPage(void)
+{
+    unsigned leds = ledsGet();
+    unsigned buttons = buttonsGet();
+
+    bodyLen = 0;
+
+    APPEND("<!DOCTYPE html>\n<html><head><title>xcore USB CDC-ECM demo</title>\n"
+           "<style>table,td{border:1px solid black;border-collapse:collapse}td{padding:5px 15px}</style>\n"
+           "</head><body>\n"
+           "<h2>XMOS USB CDC-ECM Class demo</h2>\n"
+           "<p>This page is served by an xcore that has enumerated as a USB CDC-ECM "
+           "(Ethernet over USB) device on this host.</p>\n");
+
+    /* Board controls. Each link carries the complete LED mask to apply, so
+     * refreshing the page does not change the LEDs again */
+    APPEND("<h3>Board controls</h3>\n<table>\n");
+    for (int i = 0; i < NUM_LEDS; i++) {
+        unsigned ledOn = (leds >> i) & 1;
+        APPEND("<tr><td>LED %d</td><td>%s</td><td><a href=\"/?led=%u\">Turn %s</a></td></tr>\n",
+               i, ledOn ? "On" : "Off", leds ^ (1 << i), ledOn ? "off" : "on");
     }
-    if (strncmp(string, "GET ", 4) == 0) {
-
-        sprintf(html_buffer, html_data, stats.total_rx_packets, stats.total_tx_packets, stats.arp_rx_packets,
-                                        stats.tcp_rx_packets, stats.udp_rx_packets, stats.icmp_rx_packets,
-                                        stats.total_rx_bytes, stats.total_tx_bytes);
-        sprintf(length, "%d", strlen(html_buffer)-41);
-        // Change the 'Content-Length' in HTTP header
-        strncpy(html_buffer+33, length, 4);
-        tcpString(html_buffer, rsp_packet, rsp_len);
-
-    } else {
-        tcpString("HTTP/1.0 404 NOT FOUND\r\n\r\n", rsp_packet, rsp_len);
+    for (int i = 0; i < NUM_BUTTONS; i++) {
+        APPEND("<tr><td>Button %d</td><td>%s</td><td></td></tr>\n",
+               i, ((buttons >> i) & 1) ? "Pressed" : "Released");
     }
-//    printstrln(string);
+    APPEND("</table>\n<p><a href=\"/\">Refresh</a></p>\n");
+
+    /* Network statistics */
+    APPEND("<h3>Network packet statistics</h3>\n<table>\n");
+    APPEND("<tr><td>Total packets received</td><td>%u</td></tr>\n", stats.total_rx_packets);
+    APPEND("<tr><td>Total packets transmitted</td><td>%u</td></tr>\n", stats.total_tx_packets);
+    APPEND("<tr><td>ARP packets received</td><td>%u</td></tr>\n", stats.arp_rx_packets);
+    APPEND("<tr><td>TCP packets received</td><td>%u</td></tr>\n", stats.tcp_rx_packets);
+    APPEND("<tr><td>UDP packets received</td><td>%u</td></tr>\n", stats.udp_rx_packets);
+    APPEND("<tr><td>ICMP packets received</td><td>%u</td></tr>\n", stats.icmp_rx_packets);
+    APPEND("<tr><td>Total bytes received</td><td>%u</td></tr>\n", stats.total_rx_bytes);
+    APPEND("<tr><td>Total bytes transmitted</td><td>%u</td></tr>\n", stats.total_tx_bytes);
+    APPEND("</table>\n</body></html>\n");
 }
 
+static void sendPage(unsigned int rsp_packet[], unsigned &rsp_len)
+{
+    buildPage();
+
+    /* Build the HTTP header now that the body length is known */
+    int n = snprintf(response, sizeof(response),
+                     "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\nContent-Length: %u\r\n\r\n%s",
+                     bodyLen, body);
+    if (n >= sizeof(response)) {
+        printstrln("HTTP response truncated");
+    }
+    tcpString(response, rsp_packet, rsp_len);
+}
+
+void httpProcess(unsigned int packet[], int charOffset, int packetLength, unsigned int rsp_packet[], unsigned &rsp_len)
+{
+    char request[REQ_LEN];
+    int len = (packetLength < REQ_LEN - 1) ? packetLength : REQ_LEN - 1;
+
+    for (int i = 0; i < len; i++) {
+        request[i] = (packet, unsigned char[])[charOffset + i];
+    }
+    request[len] = 0;
+
+    if (strncmp(request, "GET /?led=", 10) == 0) {
+        /* Set the LEDs from the decimal mask in the URL, then return the page */
+        unsigned mask = 0;
+        for (int i = 10; request[i] >= '0' && request[i] <= '9'; i++) {
+            mask = (mask * 10) + (request[i] - '0');
+        }
+        ledsSet(mask);
+        sendPage(rsp_packet, rsp_len);
+    } else if ((strncmp(request, "GET / ", 6) == 0) || (strncmp(request, "GET /?", 6) == 0)) {
+        sendPage(rsp_packet, rsp_len);
+    } else {
+        /* Anything else, e.g. /favicon.ico */
+        tcpString("HTTP/1.0 404 NOT FOUND\r\n\r\n", rsp_packet, rsp_len);
+    }
+}

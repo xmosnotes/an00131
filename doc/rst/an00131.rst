@@ -19,12 +19,13 @@ This example USB CDC-ECM implementation provides an emulated Ethernet interface
 running over high speed USB. It supports the standard requests associated with ECM model
 of the USB CDC specification.
 
-The demo application handles the Ethernet frames received from the USB endpoitns and hosts a
+The demo application handles the Ethernet frames received from the USB endpoints and hosts a
 HTTP web server acting as another virtual network device. A standard web browser from host PC
-can open the web page served from the USB device. The web page provides a statistics of
-different packets like ICMP, TCP, UDP etc received through the Ethernet frames from the host PC.
-This demonstrates a simple way in which Ethernet over USB applications can easily be deployed
-using an `xcore` device.
+can open the web page served from the USB device. The web page lets you switch the board LEDs
+on and off, shows the state of the board push-buttons, and provides statistics of different
+packets like ICMP, TCP, UDP etc received through the Ethernet frames from the host PC.
+This demonstrates a simple way in which Ethernet over USB can be used to control and monitor
+an `xcore` device from a web browser, without installing any software on the host.
 
 The demo application code can be extended to bridge an actual Ethernet interface by adding MAC
 and MII software layers. This enables you to create USB to Ethernet Adaptors using `xcore`
@@ -67,7 +68,7 @@ devices. For Ethernet-style networking over USB, one of the following Subclass s
 3. Network Control Model (NCM).
 
 Microsoft's RNDIS is also a famous Ethernet over USB standard that is not only supported
-in Windows but also in other OS platorms through thrid party drivers.
+in Windows but also in other OS platforms through third party drivers.
 
 Ethernet over USB provides the following advantages:
 
@@ -172,6 +173,8 @@ overview of how the source code is organized.
 - *ethernet.xc* - Contains implementation of application handling the Ethernet frames and
   upper layer protocols like ICMP, DNS etc
 
+- *gpio.xc*, *gpio.h* - Functions to set the board LEDs and read the board push-buttons.
+
 - *eth_tcp* - This folder has TCP/IP and HTTP server implementation source files.
   Note: This is not a complete TCP/IP stack.
 
@@ -209,11 +212,11 @@ Looking at this in a more detail you can see the following:
   abstraction at the endpoints level.
 
 - There is a task to startup and run the Endpoint0 code: ``Endpoint0()``. It handles the
-  control endpoint zero and must be run in a separate logical core inorder to promptly respond
+  control endpoint zero and must be run in a separate logical core in order to promptly respond
   to the control requests from host.
 
 - There is a task to handle all the other three endpoints required for the CDC-ECM class:
-  ``CdcEcmEnpointsHandler()``. This function handles one bulk OUT and one bulk IN
+  ``CdcEcmEndpointsHandler()``. This function handles one bulk OUT and one bulk IN
   endpoints for Ethernet frame transmissions and one interrupt IN endpoint for sending
   notifications to host.
 
@@ -296,13 +299,15 @@ The interface descriptors describe on how the host should communicate with the d
 level. There are two interface descriptors in a USB CDC-ECM device.
 
 The **CDC Communication interface** descriptor is for device management. You can see from the
-code that the device uses Etherner Control Model as the interface subclass, this will make hosts to
-load default driver for CDC Ethernet. This interface has subordinate descriptors like
+code that the device uses Ethernet Control Model as the interface subclass, this will make hosts
+load the default driver for CDC Ethernet. This interface has subordinate descriptors like
 CDC functional descriptors and a notification endpoint descriptor. The class-specific
 functional descriptors are discussed in detail in the next section. The notification endpoint
 is an interrupt IN endpoint and is used to report device's network connection state to the host.
-This endpoint is not used in this example application but will be employed when bridging an Ethernet
-interface to the USB-ECM device.
+In this example application a single *NETWORK_CONNECTION* notification is sent when the endpoint
+handler starts, reporting the link as connected. Hosts generally keep the interface down until they
+receive this notification. When bridging a real Ethernet interface, further notifications would be
+sent as the link state of that interface changes.
 
 The **CDC Data interface** descriptor defines the interface for Ethernet frames transmission and
 reception between host and device. This interface has two endpoints, one bulk OUT endpoint for data
@@ -310,7 +315,8 @@ transmissions from host to device and one bulk IN endpoint for data transmission
 host.
 
 .. literalinclude:: ../../app_an00131/src/xud_ecm.xc
-   :lines: 157-158
+   :start-at: /* Data OUT Endpoint descriptor */
+   :end-at: bInterval
 
 The above code from the endpoint descriptors shows that the maximum packet size of these endpoints
 to be 512 bytes (`0x200`) which is suited for handling Ethernet frames in less number of transactions.
@@ -334,26 +340,29 @@ Header functional descriptor mentions the version of the CDC specification the i
 with and it is shown below as found in the *cfgDesc[]* structure.
 
 .. literalinclude:: ../../app_an00131/src/xud_ecm.xc
-   :lines: 112-114
+   :start-at: /* Header Functional descriptor */
+   :end-at: bcdCDC
 
 Note: The CDC version number (1.10) is mentioned as BCD in little endian format.
 
 Union functional descriptor groups the interfaces that forms a CDC functional unit. It specifies
 one of the interfaces as master to handle control messages of the unit.
-Following code from the CDC-ECM example shows that the the Communication Class interface 0 acts as
+Following code from the CDC-ECM example shows that the Communication Class interface 0 acts as
 master and the Data Class interface 1 acts as subordinate and together forming a single functional
 unit.
 
 .. literalinclude:: ../../app_an00131/src/xud_ecm.xc
-   :lines: 118-121
+   :start-at: /* Union Functional descriptor */
+   :end-at: bSubordinateInterface0
 
 Ethernet networking functional descriptor provides the Ethernet related capabilities and parameters
 to the host. Following code shows the fields of the descriptor.
 
 .. literalinclude:: ../../app_an00131/src/xud_ecm.xc
-   :lines: 125-131
+   :start-at: /* Ethernet Networking Functional descriptor */
+   :end-at: bNumberPowerFilters
 
-The above code shows the followings:
+The above code shows the following:
 
 - 48-bit MAC address is provided through the string descriptor index, the string
   descriptor will carry the MAC address in a Unicode string format (example: 00229708A003).
@@ -431,7 +440,7 @@ To handle asynchronous communication over two endpoints, events are used by mean
    :start-at: select
    :end-before: /* Case handlers for CDC ECM
 
-When OUT endpoint receives data, an event is triggered and the *XUD_GetData_Select()* case is executed. Similary, when IN endpoint completes sending data to host the *XUD_SetData_Select()* case is executed.
+When OUT endpoint receives data, an event is triggered and the *XUD_GetData_Select()* case is executed. Similarly, when IN endpoint completes sending data to host the *XUD_SetData_Select()* case is executed.
 
 The maximum size of an Ethernet frame (1514 bytes) is greater than the maximum packet size (512 bytes) of the USB endpoints, therefore an Ethernet frame may be split into multiple USB packet transfers. A USB short packet notifies the end of an Ethernet frame, if the frame size is exactly a multiple of the maximum packet size of USB then a zero length packet is used to notify the end of frame.
 
@@ -467,19 +476,60 @@ In this USB CDC-ECM example, the Ethernet frames received from the host are hand
 
 The client IP address corresponds to the host PC and the server IP address belongs to the USB device.
 
-- Handles DNS queries containing the server name defined in the *ethernet.xc* file. The
-  server name is as shown below.
+- Handles multicast DNS (mDNS) queries containing the server name defined in the *ethernet.xc*
+  file. The server name is as shown below.
 
 .. literalinclude:: ../../app_an00131/src/ethernet.xc
   :start-at: /* Server name as
   :end-before: struct packet
 
-The *localname[]* is initialized in DNS name format and it corresponds to "xmos-cdc.local"
+The *localname[]* is initialized in DNS name format and it corresponds to "xmos-cdc.local".
+The device replies to any query for this name, whichever record type is asked for, with its
+IPv4 address (an A record) and an NSEC record stating that no other record types exist. Hosts
+such as macOS often ask for IPv6 (AAAA) and HTTPS records first, so replying only to A queries is
+not enough. The device also sends the same response unprompted (an mDNS announcement) after
+replying to DHCP and after the host announces its own address, so the host can resolve
+"xmos-cdc.local" without having to ask.
 
 - Handles HTTP webpage requests and ICMP control ping requests.
 
 - Collects a statistics of the different packets received from the host PC and embeds the
   information in the web page.
+
+- Sets the board LEDs and reports the state of the board push-buttons on the web page.
+
+Controlling the board from the web page
+---------------------------------------
+
+The LEDs and push-buttons of the `XK-EVK-XU316` are accessed through the ``PORT_LEDS`` and
+``PORT_BUTTONS`` ports, which are named in the board's XN file and are on `tile[0]`, the same tile
+as the USB tasks. *gpio.xc* declares the ports and provides simple functions to use them:
+
+.. literalinclude:: ../../app_an00131/src/gpio.xc
+   :start-at: on tile[0]: out port
+
+The web page shows a table with a row for each LED and push-button. Each LED row has a link whose
+URL carries the complete LED state to apply as a decimal bit mask, for example ``/?led=5`` turns
+LEDs 0 and 2 on and the others off. Because the URL holds the full state rather than a "toggle"
+command, refreshing the page in the browser does not change the LEDs again.
+
+The request is handled in ``httpProcess()`` in *eth_tcp/http.xc*:
+
+.. literalinclude:: ../../app_an00131/src/eth_tcp/http.xc
+   :start-at: if (strncmp(request, "GET /?led=", 10) == 0) {
+   :end-before: } else if
+
+The web page is then built by ``buildPage()`` using the current LED, push-button and packet
+statistics values. The push-button state is read when the page is built, so the page must be
+refreshed to see a change.
+
+.. note::
+
+    The simple TCP implementation in this example sends each HTTP response as a single TCP
+    segment, so the complete response, including the HTTP header, must fit in one Ethernet frame
+    (1460 bytes of TCP payload). The page in this example is just under this limit. A larger or
+    more interactive page requires a full TCP/IP stack, such as the XMOS TCP/IP library
+    (``lib_xtcp``).
 
 |newpage|
 
@@ -496,7 +546,7 @@ To setup the demo hardware the following boards are required.
    :scale: 110%
    :align: center
 
-   XMOS `XK-EVK-316` Board
+   XMOS `XK-EVK-XU316` Board
 
 The hardware should be configured as follows:
 
@@ -557,7 +607,7 @@ Running the demo
 ================
 
 This demo works right away on platforms that have native support for USB CDC-ECM class.
-Most versons of Linux have native support for this CDC Ethernet. The demo application is
+Most versions of Linux have native support for this CDC Ethernet. The demo application is
 tested on Ubuntu 20.04.6 LTS version.
 
 Running on Linux
@@ -611,6 +661,10 @@ and it is shown in :numref:`xmos_cdc_local`.
 
 Refresh the opened webpage to see the packets count updated. Also note the number of ICMP
 packets is same as the number of ping requests sent out previously.
+
+Click the *Turn on* and *Turn off* links in the *Board controls* table to switch the LEDs on the
+`XK-EVK-XU316`. Hold down a push-button on the board and click *Refresh* to see its state change
+to *Pressed*.
 
 Troubleshooting
 ===============

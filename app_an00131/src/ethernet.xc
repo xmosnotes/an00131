@@ -11,6 +11,7 @@
 #include "femtoUDP.h"
 #include "femtoTCP.h"
 #include "dhcp.h"
+#include "gpio.h"
 
 /* IP Addresses of the USB device (Server) and the Host PC (Client) */
 int ipAddressServer   = 0xA9FE5555;
@@ -163,6 +164,54 @@ static int makeICMPReply(unsigned int rxbuf[], unsigned int txbuf[]) {
     return pad;
 }
 
+/* DNS message offset of the DNS header in an Ethernet frame, used by name compression pointers */
+#define DNS_HEADER_OFFSET 42
+
+/* Returns the index just after the DNS name starting at index i */
+static int dnsSkipName(unsigned char pkt[], unsigned len, int i) {
+    while (i < len) {
+        unsigned c = pkt[i];
+        if (c == 0) {
+            return i + 1;               /* End of name */
+        }
+        if ((c & 0xC0) == 0xC0) {
+            return i + 2;               /* Compression pointer ends the name */
+        }
+        i += c + 1;                     /* Skip label */
+    }
+    return len;
+}
+
+/* Returns 1 if the DNS name starting at index i is our local name. Names in
+ * questions after the first are usually compressed, i.e. they contain a pointer
+ * back to an earlier name in the message */
+static int dnsNameIsLocal(unsigned char pkt[], unsigned len, int i) {
+    int j = 0;
+    int jumps = 0;
+    while (i < len && j < sizeof(localName)) {
+        unsigned c = pkt[i];
+        if ((c & 0xC0) == 0xC0) {
+            if (++jumps > 4 || (i + 1) >= len) {
+                return 0;
+            }
+            i = DNS_HEADER_OFFSET + (((c & 0x3F) << 8) | pkt[i + 1]);
+            continue;
+        }
+        if (c >= 'A' && c <= 'Z') {
+            c += 'a' - 'A';             /* Names are case insensitive */
+        }
+        if (c != localName[j]) {
+            return 0;
+        }
+        if (c == 0) {
+            return 1;                   /* Matched up to and including the end of name */
+        }
+        i++;
+        j++;
+    }
+    return 0;
+}
+
 static int makeMDNSResponse(unsigned int packet[]) {
     int k;
     packet[10] = 0x00000000;
@@ -221,6 +270,16 @@ static int makeMDNSResponse(unsigned int packet[]) {
 }
 
 
+/* Send our mDNS response, the A record for our local name. Used both to answer
+ * queries and to announce the name unprompted */
+static void sendMDNSResponse(client interface usb_cdc_ecm_if cdc_ecm, unsigned int tx_buf[])
+{
+    unsigned len = makeMDNSResponse(tx_buf);
+    cdc_ecm.send_frame((tx_buf, unsigned char[]), len);
+    stats.total_tx_packets++;
+    stats.total_tx_bytes += len;
+}
+
 /* Task to handle Ethernet frames received from USB endpoints */
 void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
 {
@@ -229,6 +288,9 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
 
     unsigned int tx_buf[MAX_FRAME_SIZE/sizeof(int)];
     unsigned tx_len;
+
+    /* Start with all LEDs off, they are controlled from the web page */
+    ledsSet(0);
 
     printstrln("--XMOS USB CDC-ECM Class demo--");
     printstr("\nServer IP Address: ");
@@ -265,6 +327,10 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
                 stats.total_tx_packets++;
                 stats.total_tx_bytes += tx_len;
                 tx_len = 0;
+
+                /* The host has just announced its address, announce our name so it is
+                 * cached without the host having to ask (RFC 6762 section 8.3) */
+                sendMDNSResponse(cdc_ecm, tx_buf);
                 continue;
             }
             if ((rx_buf, short[])[20] == -1 ||
@@ -291,6 +357,9 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
                         stats.total_tx_packets++;
                         stats.total_tx_bytes += tx_len;
                         tx_len = 0;
+
+                        /* Announce our name as the host is configuring its address */
+                        sendMDNSResponse(cdc_ecm, tx_buf);
                         continue;
                     }
 
@@ -298,39 +367,25 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
                     /* Handle DNS query from Host */
                     int flags = (rx_buf, short[])[22];
                     int queries = byterev((rx_buf, short[])[23]) >> 16;
-                    int index = 54;
-                    if (flags == 0) {
-                        for(int i = 0; i < queries; i++) {
-                            int qType, qFlag;
-                            int j = 0, matcher;
-                            for(j = 0; j < sizeof(localName); j++) {
-                                matcher = (rx_buf, unsigned char[])[index+j];
-                                if (matcher == 0 || matcher != localName[j]) {
-                                    break;
-                                }
+                    int index = 54;     /* First question, after the 12 byte DNS header */
+                    int askedForUs = 0;
+                    if (flags == 0) {   /* Standard query */
+                        /* Look through all the questions for our name. The question type
+                         * and class are not checked: hosts often ask for other record
+                         * types (e.g. AAAA) and may set the "unicast response" bit in the
+                         * class. The response holds our A record plus an NSEC record
+                         * stating that no other record types exist, which the host caches
+                         * whichever type it asked for */
+                        for(int i = 0; i < queries && index < rx_len; i++) {
+                            if (dnsNameIsLocal((rx_buf, unsigned char[]), rx_len, index)) {
+                                askedForUs = 1;
                             }
-                            if (matcher) {
-                                do {
-                                    j++;
-                                    matcher = (rx_buf, unsigned char[])[index+j];
-                                } while(matcher != 0);
-                                index += 4 + j;
-                                continue;
-                            }
-                            index += j+1;
-                            if ((rx_buf, unsigned char[])[index] == 0 &&
-                                (rx_buf, unsigned char[])[index+1] == 1 &&
-                                (rx_buf, unsigned char[])[index+2] == 0 &&
-                                (rx_buf, unsigned char[])[index+3] == 1) {
-
-                                tx_len = makeMDNSResponse(tx_buf);
-                                cdc_ecm.send_frame((tx_buf, unsigned char[]), tx_len);
-                                stats.total_tx_packets++;
-                                stats.total_tx_bytes += tx_len;
-                                tx_len = 0;
-                            }
-                            index += 4;
+                            /* Skip the name, QTYPE and QCLASS */
+                            index = dnsSkipName((rx_buf, unsigned char[]), rx_len, index) + 4;
                         }
+                    }
+                    if (askedForUs) {
+                        sendMDNSResponse(cdc_ecm, tx_buf);
                     }
                 }
             } else if (protocol == 0x6) { // TCP

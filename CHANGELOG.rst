@@ -1,6 +1,20 @@
 an00131 Changelog
 =================
 
+UNRELEASED
+----------
+
+  * ADDED: Web page controls for the board LEDs and display of push-button
+    state
+  * FIXED: xmos-cdc.local not resolving on hosts that ask for record types
+    other than A, set the mDNS unicast-response bit or use name compression.
+    The device now also announces its name after DHCP and ARP
+  * FIXED: Code excerpts in the application note that showed the wrong source
+    lines
+  * FIXED: Application note stated that the notification endpoint is not used
+  * FIXED: Mismatched HTML tags in the web page
+  * FIXED: Typos in the application note and README
+
 3.1.0
 -----
 
