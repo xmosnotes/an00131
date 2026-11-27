@@ -1,6 +1,10 @@
 // Copyright 2015-2026 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
+/* Minimal demonstration IPv4 responder for this application note only. It is
+ * not a general TCP/IP stack: there is no TCP retransmission, IP options,
+ * fragmentation or IPv6. Use a maintained stack (e.g. lib_xtcp) in products. */
+
 #include <xclib.h>
 #include <print.h>
 #include "femtoTCP.h"
@@ -65,6 +69,13 @@ void tcpString(char s[], unsigned int rsp_packet[], unsigned &rsp_len) {
 }
 
 void processTCPPacket(unsigned int packet[], unsigned len, unsigned int rsp_packet[], unsigned &rsp_len) {
+    rsp_len = 0;
+    if (len < HEADERS_LEN_TCP)
+        return;
+    unsigned ipLength = byterev((packet, unsigned short[])[8]) >> 16;
+    unsigned tcpLength = ((packet, unsigned char[])[46] >> 4) * 4;
+    if (tcpLength < 20 || ipLength < 20 + tcpLength || ipLength > len - 14)
+        return;
     int sourcePortRev = (packet, unsigned short[])[17];
     int destPortRev = (packet, unsigned short[])[18];
     unsigned int sequenceNumberRev = (((packet, unsigned short[])[20])<<16) |

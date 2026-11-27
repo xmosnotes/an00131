@@ -184,7 +184,9 @@ overview of how the source code is organized.
 - *gpio.xc*, *gpio.h* - Functions to set the board LEDs and read the board push-buttons.
 
 - *eth_tcp* - This folder has TCP/IP and HTTP server implementation source files.
-  Note: This is not a complete TCP/IP stack.
+  Note: This is a minimal demonstration responder, not a complete TCP/IP stack. It has no TCP
+  retransmission, IP options, fragmentation or IPv6 support. Use a maintained stack, such as
+  ``lib_xtcp``, in products.
 
 Setting up the USB library
 ==========================

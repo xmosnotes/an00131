@@ -1,6 +1,10 @@
 // Copyright 2015-2026 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
+/* Minimal demonstration IPv4 responder for this application note only. It is
+ * not a general TCP/IP stack: there is no TCP retransmission, IP options,
+ * fragmentation or IPv6. Use a maintained stack (e.g. lib_xtcp) in products. */
+
 #include <xclib.h>
 #include <print.h>
 #include "femtoUDP.h"

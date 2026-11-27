@@ -16,6 +16,8 @@ UNRELEASED
     lines
   * FIXED: Application note stated that the notification endpoint is not used
   * FIXED: Mismatched HTML tags in the web page
+  * FIXED: Received ARP, IPv4, UDP, TCP and DHCP frames are now length-checked
+    before parsing; the DHCP option parser could read beyond the received frame
 
   * Changes to dependencies:
 

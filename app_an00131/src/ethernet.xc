@@ -1,6 +1,10 @@
 // Copyright 2015-2026 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
+/* Minimal demonstration IPv4 responder for this application note only. It is
+ * not a general TCP/IP stack: there is no TCP retransmission, IP options,
+ * fragmentation or IPv6. Use a maintained stack (e.g. lib_xtcp) in products. */
+
 #include <xclib.h>
 #include <print.h>
 #include <stdio.h>
@@ -303,6 +307,9 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
     while(1) {
         /* Blocking wait call to read a received ethernet frame */
         cdc_ecm.read_frame((rx_buf, unsigned char[]), rx_len);
+        tx_len = 0;
+        if (rx_len < 14)
+            continue;
         stats.total_rx_packets++;
         stats.total_rx_bytes += rx_len;
 
@@ -310,6 +317,8 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
         int type = (rx_buf, short[])[6];
 
         if (type == 0x0608) { // ARP packet
+            if (rx_len < 42)
+                continue;
             stats.arp_rx_packets++;
             if ((rx_buf, short[])[14] == (rx_buf, short[])[19] &&
                 (rx_buf, short[])[15] == (rx_buf, short[])[20]) {
@@ -343,9 +352,27 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
             }
 
         } else if (type == 0x0008) { // IP packet
+            /* The demonstration stack handles unfragmented IPv4 with a fixed
+             * 20-byte IP header. Reject other layouts before fixed offsets. */
+            if (rx_len < 34 || (rx_buf, unsigned char[])[14] != 0x45)
+                continue;
+            unsigned ip_len = ((unsigned)(rx_buf, unsigned char[])[16] << 8) |
+                               (rx_buf, unsigned char[])[17];
+            unsigned fragment = ((unsigned)(rx_buf, unsigned char[])[20] << 8) |
+                                 (rx_buf, unsigned char[])[21];
+            if (ip_len < 20 || ip_len > rx_len - 14 || (fragment & 0x3fff))
+                continue;
+            rx_len = ip_len + 14;
             int protocol = (rx_buf, unsigned char[])[23];
 
             if (protocol == 0x11) { // UDP
+                if (rx_len < 42)
+                    continue;
+                unsigned udp_len = ((unsigned)(rx_buf, unsigned char[])[38] << 8) |
+                                    (rx_buf, unsigned char[])[39];
+                if (udp_len < 8 || udp_len > rx_len - 34)
+                    continue;
+                rx_len = udp_len + 34;
                 stats.udp_rx_packets++;
                 int destPort = (rx_buf, unsigned short[])[18];
                 int srcPort = (rx_buf, unsigned short[])[17];
@@ -364,6 +391,8 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
                     }
 
                 } else if (destPort == 0xe914 && srcPort == 0xe914) {   // MDNS
+                    if (rx_len < 54)
+                        continue;
                     /* Handle DNS query from Host */
                     int flags = (rx_buf, short[])[22];
                     int queries = byterev((rx_buf, short[])[23]) >> 16;
@@ -398,6 +427,8 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
                     tx_len = 0;
                 }
             } else if (protocol == 0x01) { // ICMP packet
+                if (rx_len < 42)
+                    continue;
                 stats.icmp_rx_packets++;
                 if(((rx_buf, unsigned int[])[3] == 0x00450008) &&
                         (((rx_buf, unsigned int[])[8] >> 16) == (0x0008))){
