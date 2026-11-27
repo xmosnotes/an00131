@@ -132,7 +132,7 @@ void processTCPPacket(unsigned int packet[], unsigned len, unsigned int rsp_pack
 
 
     packetLength = byterev((packet, unsigned short[])[8]) >> 16;
-    headerLength = ((packet, unsigned char[])[46])>>2;
+    headerLength = tcpLength; /* Validated above; excludes the reserved bits */
     packetLength -= headerLength + 20;
 
     stream[stream_index].ackNumber += packetLength;

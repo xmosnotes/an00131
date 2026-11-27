@@ -20,8 +20,11 @@
 /* IP Addresses of the USB device (Server) and the Host PC (Client) */
 int ipAddressServer   = 0xA9FE5555;
 int ipAddressClient = 0xA9FEAAAA;
-unsigned char ipAddressServerArray[4] = {169, 254, 85, 85};
-unsigned char ipAddressClientArray[4] = {169, 254, 170, 170};
+/* Returns byte n (0 = most significant) of an IPv4 address. The addresses
+ * can change at run time, so they have a single integer representation. */
+static unsigned ipByte(int ip, int n) {
+    return ((unsigned)ip >> (24 - 8 * n)) & 0xff;
+}
 
 /* MAC Addresses of the USB device and the Host PC */
 const char macAddressServer[6] = {0x00, 0x22, 0x97, 0x08, 0xA0, 0x02};
@@ -138,10 +141,10 @@ static int makeICMPReply(unsigned int rxbuf[], unsigned int txbuf[]) {
     (txbuf, unsigned[])[6] = 0;
     for (int i = 0; i < 4; i++)
     {
-      (txbuf, unsigned char[])[26 + i] = ipAddressServerArray[i];
+      (txbuf, unsigned char[])[26 + i] = ipByte(ipAddressServer, i);
     }
-    ip_checksum += (ipAddressServerArray[0] | ipAddressServerArray[1] << 8);
-    ip_checksum += (ipAddressServerArray[2] | ipAddressServerArray[3] << 8);
+    ip_checksum += (ipByte(ipAddressServer, 0) | ipByte(ipAddressServer, 1) << 8);
+    ip_checksum += (ipByte(ipAddressServer, 2) | ipByte(ipAddressServer, 3) << 8);
     ip_checksum += (txbuf, unsigned char[])[30] | ((txbuf, unsigned char[])[31] << 8);
     ip_checksum += (txbuf, unsigned char[])[32] | ((txbuf, unsigned char[])[33] << 8);
 
@@ -299,7 +302,7 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
     printstrln("--XMOS USB CDC-ECM Class demo--");
     printstr("\nServer IP Address: ");
     for(int i = 0; i < 4; i++) {
-        printint(ipAddressServerArray[i]);
+        printint(ipByte(ipAddressServer, i));
         if(i != 3) printchar('.');
     }
     printstrln("");
