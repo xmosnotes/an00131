@@ -15,6 +15,14 @@ UNRELEASED
   * FIXED: Mismatched HTML tags in the web page
   * FIXED: Typos in the application note and README
 
+  * Changes to dependencies:
+
+    - lib_logging: 3.3.1 -> 3.5.0
+
+    - lib_xassert: 4.3.1 -> 5.1.0
+
+    - lib_xud: 3.0.0 -> 4.0.1
+
 3.1.0
 -----
 

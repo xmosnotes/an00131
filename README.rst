@@ -47,6 +47,8 @@ Required libraries (dependencies)
 *********************************
 
 * `lib_xud <https://www.xmos.com/file/lib_xud>`_
+* `lib_logging <https://www.xmos.com/file/lib_logging>`_
+* `lib_xassert <https://www.xmos.com/file/lib_xassert>`_
 
 *************
 Related notes

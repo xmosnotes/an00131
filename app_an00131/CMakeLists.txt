@@ -8,9 +8,9 @@ set(APP_INCLUDES src src/eth_tcp)
 
 set(APP_COMPILER_FLAGS -O3 -report -DUSE_XSCOPE=1 -fxscope)
 
-set (APP_DEPENDENT_MODULES "lib_xud(3.0.0)"
-                           "lib_logging(3.3.1)"
-                           "lib_xassert(4.3.1)"
+set (APP_DEPENDENT_MODULES "lib_xud(4.0.1)"
+                           "lib_logging(3.5.0)"
+                           "lib_xassert(5.1.0)"
                           )
 
 set(XMOS_SANDBOX_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
