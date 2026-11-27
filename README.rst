@@ -62,15 +62,15 @@ resolution requires mDNS support on the host; use the device IP address (169.254
 Required libraries (dependencies)
 *********************************
 
-* `lib_xud <https://www.xmos.com/file/lib_xud>`_
-* `lib_logging <https://www.xmos.com/file/lib_logging>`_
-* `lib_xassert <https://www.xmos.com/file/lib_xassert>`_
+* `lib_xud <https://www.xmos.com/libraries/lib_xud>`_ (https://www.xmos.com/libraries/lib_xud)
+* `lib_logging <https://www.xmos.com/libraries/lib_logging>`_ (https://www.xmos.com/libraries/lib_logging)
+* `lib_xassert <https://www.xmos.com/libraries/lib_xassert>`_ (https://www.xmos.com/libraries/lib_xassert)
 
 *************************
 Related application notes
 *************************
 
-* AN00124: USB CDC Class as Virtual Serial Port
+* `AN00124 - USB CDC Class as Virtual Serial Port <https://www.xmos.com/application-notes/an00124>`_
 
 *******
 Support
