@@ -6,6 +6,9 @@ UNRELEASED
 
   * ADDED: Web page controls for the board LEDs and display of push-button
     state
+  * CHANGED: Application renamed from app_usb_cdc_edc to app_an00131
+  * CHANGED: Build and run instructions updated to the current application
+    note format
   * FIXED: xmos-cdc.local not resolving on hosts that ask for record types
     other than A, set the mDNS unicast-response bit or use name compression.
     The device now also announces its name after DHCP and ARP
@@ -13,7 +16,6 @@ UNRELEASED
     lines
   * FIXED: Application note stated that the notification endpoint is not used
   * FIXED: Mismatched HTML tags in the web page
-  * FIXED: Typos in the application note and README
 
   * Changes to dependencies:
 

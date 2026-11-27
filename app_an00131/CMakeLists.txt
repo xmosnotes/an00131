@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 include($ENV{XMOS_CMAKE_PATH}/xcommon.cmake)
-project(app_usb_cdc_edc)
+project(app_an00131)
 
 set(APP_HW_TARGET XK-EVK-XU316)
 

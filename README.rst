@@ -18,7 +18,7 @@ Summary
 
 This app note shows how to implement the *CDC-ECM* class on USB, which
 supports emulation of ethernet interfaces over USB. In this example
-document we show how to run a web-server over USB on an `xcore` device.
+document we show how to run a web-server over USB on an `XCORE` device.
 The web page served by the device controls the board LEDs and shows the
 board push-button state and network packet statistics.
 
