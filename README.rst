@@ -48,6 +48,16 @@ Required tools
 
 * XMOS XTC Tools: 15.3.1
 
+************************
+Host system requirements
+************************
+
+macOS and Linux include a USB CDC-ECM class driver, so no host software needs to be
+installed. Windows does not include a CDC-ECM class driver; a third party driver is required
+for the device to appear as a network interface. The demo is viewed in a web browser. Name
+resolution requires mDNS support on the host; use the device IP address (169.254.85.85) if
+``xmos-cdc.local`` is unavailable.
+
 *********************************
 Required libraries (dependencies)
 *********************************
