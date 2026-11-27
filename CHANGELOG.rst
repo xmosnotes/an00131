@@ -1,5 +1,5 @@
-an00131 Changelog
-=================
+an00131 change log
+==================
 
 UNRELEASED
 ----------
@@ -28,7 +28,7 @@ UNRELEASED
 
   * Changes to dependencies:
 
-      - lib_xud: 2.4.0 -> 3.0.0
+    - lib_xud: 2.4.0 -> 3.0.0
 
 3.0.0
 -----
@@ -39,3 +39,4 @@ UNRELEASED
 -----
 
   * Initial version. Released as part of lib_xud prior to version 2.4.0
+

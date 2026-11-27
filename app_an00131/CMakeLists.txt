@@ -6,7 +6,7 @@ set(APP_HW_TARGET XK-EVK-XU316)
 
 set(APP_INCLUDES src src/eth_tcp)
 
-set(APP_COMPILER_FLAGS -O3 -report -DUSE_XSCOPE=1 -fxscope)
+set(APP_COMPILER_FLAGS -O3 -g -report -DUSE_XSCOPE=1 -fxscope)
 
 set (APP_DEPENDENT_MODULES "lib_xud(4.0.1)"
                            "lib_logging(3.5.0)"
