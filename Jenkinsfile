@@ -1,12 +1,12 @@
 // This file relates to internal XMOS infrastructure and should be ignored by external users
 
-@Library('xmos_jenkins_shared_library@v0.39.0') _
+@Library('xmos_jenkins_shared_library@v0.56.0') _
 
 getApproval()
 pipeline {
-    agent {
-        label 'documentation'
-    }
+
+    agent none
+
     parameters {
         string(
             name: 'TOOLS_VERSION',
@@ -15,8 +15,13 @@ pipeline {
         )
         string(
             name: 'XMOSDOC_VERSION',
-            defaultValue: 'v7.2.0',
+            defaultValue: 'v8.1.2',
             description: 'xmosdoc version'
+        )
+        string(
+            name: 'INFR_APPS_VERSION',
+            defaultValue: 'develop',
+            description: 'The infr_apps version'
         )
     }
 
@@ -27,52 +32,76 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps{
+        stage('🏗️ Build and test') {
+            agent {
+                label "documentation"
+            }
 
-                println "Stage running on ${env.NODE_NAME}"
+            stages {
+                stage('Checkout') {
+                    steps {
 
-                script {
-                    def (server, user, repo) = extractFromScmUrl()
-                    env.REPO_NAME = repo
+                        println "Stage running on ${env.NODE_NAME}"
+
+                        script {
+                            def (server, user, repo) = extractFromScmUrl()
+                            env.REPO_NAME = repo
+                        }
+
+                        dir(REPO_NAME) {
+                            checkoutScmShallow()
+                        }
+                    }
                 }
 
-                dir(REPO_NAME)
-                {
-                    checkoutScmShallow()
+                stage('Build, checks, docs') {
+                    parallel {
+                        stage('Code build') {
+                            steps {
+                                dir(REPO_NAME) {
+                                    xcoreBuild()
+                                }
+                            }
+                        }
+
+                        stage('Repo checks') {
+                            steps {
+                                warnError("Repo checks failed") {
+                                    runRepoChecks("${WORKSPACE}/${REPO_NAME}")
+                                }
+                            }
+                        }
+
+                        stage('Doc build') {
+                            steps {
+                                dir(REPO_NAME) {
+                                    buildDocs()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                stage("Archive sandbox") {
+                    steps {
+                        archiveSandbox(REPO_NAME)
+                    }
+                }
+            } // stages
+            post {
+                cleanup {
+                    xcoreCleanSandbox()
                 }
             }
-        }
+        } // stage 'Build and test'
 
-        stage('Code build') {
-            steps{
-                dir(REPO_NAME) {
-                    xcoreBuild()
-                }
+        stage('🚀 Release') {
+            when {
+                expression { triggerRelease.isReleasable() }
             }
-        }
-
-        stage('Doc build') {
             steps {
-                dir(REPO_NAME) {
-                    buildDocs()
-                }
+                triggerRelease()
             }
         }
-
-        stage("Archive sandbox") {
-            steps
-            {
-                archiveSandbox(REPO_NAME)
-            }
-        }
-
     } // stages
-    post
-    {
-        cleanup
-        {
-             xcoreCleanSandbox()
-        }
-    }
 } // pipeline
