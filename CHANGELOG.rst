@@ -1,12 +1,38 @@
-an00131 Changelog
-=================
+an00131 change log
+==================
+
+UNRELEASED
+----------
+
+  * ADDED: Web page controls for the board LEDs and display of push-button
+    state
+  * CHANGED: Application renamed from app_usb_cdc_edc to app_an00131
+  * CHANGED: Build and run instructions updated to the current application
+    note format
+  * FIXED: xmos-cdc.local not resolving on hosts that ask for record types
+    other than A, set the mDNS unicast-response bit or use name compression.
+    The device now also announces its name after DHCP and ARP
+  * FIXED: Code excerpts in the application note that showed the wrong source
+    lines
+  * FIXED: Application note stated that the notification endpoint is not used
+  * FIXED: Mismatched HTML tags in the web page
+  * FIXED: Received ARP, IPv4, UDP, TCP and DHCP frames are now length-checked
+    before parsing; the DHCP option parser could read beyond the received frame
+
+  * Changes to dependencies:
+
+    - lib_logging: 3.3.1 -> 3.5.0
+
+    - lib_xassert: 4.3.1 -> 5.1.0
+
+    - lib_xud: 3.0.0 -> 4.0.1
 
 3.1.0
 -----
 
   * Changes to dependencies:
 
-      - lib_xud: 2.4.0 -> 3.0.0
+    - lib_xud: 2.4.0 -> 3.0.0
 
 3.0.0
 -----
@@ -17,3 +43,4 @@ an00131 Changelog
 -----
 
   * Initial version. Released as part of lib_xud prior to version 2.4.0
+

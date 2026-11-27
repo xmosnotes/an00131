@@ -1,6 +1,10 @@
 // Copyright 2015-2026 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
+/* Minimal demonstration IPv4 responder for this application note only. It is
+ * not a general TCP/IP stack: there is no TCP retransmission, IP options,
+ * fragmentation or IPv6. Use a maintained stack (e.g. lib_xtcp) in products. */
+
 #include <xclib.h>
 #include <print.h>
 #include <stdio.h>
@@ -11,12 +15,16 @@
 #include "femtoUDP.h"
 #include "femtoTCP.h"
 #include "dhcp.h"
+#include "gpio.h"
 
 /* IP Addresses of the USB device (Server) and the Host PC (Client) */
 int ipAddressServer   = 0xA9FE5555;
 int ipAddressClient = 0xA9FEAAAA;
-unsigned char ipAddressServerArray[4] = {169, 254, 85, 85};
-unsigned char ipAddressClientArray[4] = {169, 254, 170, 170};
+/* Returns byte n (0 = most significant) of an IPv4 address. The addresses
+ * can change at run time, so they have a single integer representation. */
+static unsigned ipByte(int ip, int n) {
+    return ((unsigned)ip >> (24 - 8 * n)) & 0xff;
+}
 
 /* MAC Addresses of the USB device and the Host PC */
 const char macAddressServer[6] = {0x00, 0x22, 0x97, 0x08, 0xA0, 0x02};
@@ -133,10 +141,10 @@ static int makeICMPReply(unsigned int rxbuf[], unsigned int txbuf[]) {
     (txbuf, unsigned[])[6] = 0;
     for (int i = 0; i < 4; i++)
     {
-      (txbuf, unsigned char[])[26 + i] = ipAddressServerArray[i];
+      (txbuf, unsigned char[])[26 + i] = ipByte(ipAddressServer, i);
     }
-    ip_checksum += (ipAddressServerArray[0] | ipAddressServerArray[1] << 8);
-    ip_checksum += (ipAddressServerArray[2] | ipAddressServerArray[3] << 8);
+    ip_checksum += (ipByte(ipAddressServer, 0) | ipByte(ipAddressServer, 1) << 8);
+    ip_checksum += (ipByte(ipAddressServer, 2) | ipByte(ipAddressServer, 3) << 8);
     ip_checksum += (txbuf, unsigned char[])[30] | ((txbuf, unsigned char[])[31] << 8);
     ip_checksum += (txbuf, unsigned char[])[32] | ((txbuf, unsigned char[])[33] << 8);
 
@@ -161,6 +169,54 @@ static int makeICMPReply(unsigned int rxbuf[], unsigned int txbuf[]) {
       (txbuf, unsigned char[])[pad] = 0x00;
     }
     return pad;
+}
+
+/* DNS message offset of the DNS header in an Ethernet frame, used by name compression pointers */
+#define DNS_HEADER_OFFSET 42
+
+/* Returns the index just after the DNS name starting at index i */
+static int dnsSkipName(unsigned char pkt[], unsigned len, int i) {
+    while (i < len) {
+        unsigned c = pkt[i];
+        if (c == 0) {
+            return i + 1;               /* End of name */
+        }
+        if ((c & 0xC0) == 0xC0) {
+            return i + 2;               /* Compression pointer ends the name */
+        }
+        i += c + 1;                     /* Skip label */
+    }
+    return len;
+}
+
+/* Returns 1 if the DNS name starting at index i is our local name. Names in
+ * questions after the first are usually compressed, i.e. they contain a pointer
+ * back to an earlier name in the message */
+static int dnsNameIsLocal(unsigned char pkt[], unsigned len, int i) {
+    int j = 0;
+    int jumps = 0;
+    while (i < len && j < sizeof(localName)) {
+        unsigned c = pkt[i];
+        if ((c & 0xC0) == 0xC0) {
+            if (++jumps > 4 || (i + 1) >= len) {
+                return 0;
+            }
+            i = DNS_HEADER_OFFSET + (((c & 0x3F) << 8) | pkt[i + 1]);
+            continue;
+        }
+        if (c >= 'A' && c <= 'Z') {
+            c += 'a' - 'A';             /* Names are case insensitive */
+        }
+        if (c != localName[j]) {
+            return 0;
+        }
+        if (c == 0) {
+            return 1;                   /* Matched up to and including the end of name */
+        }
+        i++;
+        j++;
+    }
+    return 0;
 }
 
 static int makeMDNSResponse(unsigned int packet[]) {
@@ -221,6 +277,16 @@ static int makeMDNSResponse(unsigned int packet[]) {
 }
 
 
+/* Send our mDNS response, the A record for our local name. Used both to answer
+ * queries and to announce the name unprompted */
+static void sendMDNSResponse(client interface usb_cdc_ecm_if cdc_ecm, unsigned int tx_buf[])
+{
+    unsigned len = makeMDNSResponse(tx_buf);
+    cdc_ecm.send_frame((tx_buf, unsigned char[]), len);
+    stats.total_tx_packets++;
+    stats.total_tx_bytes += len;
+}
+
 /* Task to handle Ethernet frames received from USB endpoints */
 void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
 {
@@ -230,10 +296,13 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
     unsigned int tx_buf[MAX_FRAME_SIZE/sizeof(int)];
     unsigned tx_len;
 
+    /* Start with all LEDs off, they are controlled from the web page */
+    ledsSet(0);
+
     printstrln("--XMOS USB CDC-ECM Class demo--");
     printstr("\nServer IP Address: ");
     for(int i = 0; i < 4; i++) {
-        printint(ipAddressServerArray[i]);
+        printint(ipByte(ipAddressServer, i));
         if(i != 3) printchar('.');
     }
     printstrln("");
@@ -241,6 +310,9 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
     while(1) {
         /* Blocking wait call to read a received ethernet frame */
         cdc_ecm.read_frame((rx_buf, unsigned char[]), rx_len);
+        tx_len = 0;
+        if (rx_len < 14)
+            continue;
         stats.total_rx_packets++;
         stats.total_rx_bytes += rx_len;
 
@@ -248,6 +320,8 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
         int type = (rx_buf, short[])[6];
 
         if (type == 0x0608) { // ARP packet
+            if (rx_len < 42)
+                continue;
             stats.arp_rx_packets++;
             if ((rx_buf, short[])[14] == (rx_buf, short[])[19] &&
                 (rx_buf, short[])[15] == (rx_buf, short[])[20]) {
@@ -265,6 +339,10 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
                 stats.total_tx_packets++;
                 stats.total_tx_bytes += tx_len;
                 tx_len = 0;
+
+                /* The host has just announced its address, announce our name so it is
+                 * cached without the host having to ask (RFC 6762 section 8.3) */
+                sendMDNSResponse(cdc_ecm, tx_buf);
                 continue;
             }
             if ((rx_buf, short[])[20] == -1 ||
@@ -277,9 +355,27 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
             }
 
         } else if (type == 0x0008) { // IP packet
+            /* The demonstration stack handles unfragmented IPv4 with a fixed
+             * 20-byte IP header. Reject other layouts before fixed offsets. */
+            if (rx_len < 34 || (rx_buf, unsigned char[])[14] != 0x45)
+                continue;
+            unsigned ip_len = ((unsigned)(rx_buf, unsigned char[])[16] << 8) |
+                               (rx_buf, unsigned char[])[17];
+            unsigned fragment = ((unsigned)(rx_buf, unsigned char[])[20] << 8) |
+                                 (rx_buf, unsigned char[])[21];
+            if (ip_len < 20 || ip_len > rx_len - 14 || (fragment & 0x3fff))
+                continue;
+            rx_len = ip_len + 14;
             int protocol = (rx_buf, unsigned char[])[23];
 
             if (protocol == 0x11) { // UDP
+                if (rx_len < 42)
+                    continue;
+                unsigned udp_len = ((unsigned)(rx_buf, unsigned char[])[38] << 8) |
+                                    (rx_buf, unsigned char[])[39];
+                if (udp_len < 8 || udp_len > rx_len - 34)
+                    continue;
+                rx_len = udp_len + 34;
                 stats.udp_rx_packets++;
                 int destPort = (rx_buf, unsigned short[])[18];
                 int srcPort = (rx_buf, unsigned short[])[17];
@@ -291,46 +387,37 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
                         stats.total_tx_packets++;
                         stats.total_tx_bytes += tx_len;
                         tx_len = 0;
+
+                        /* Announce our name as the host is configuring its address */
+                        sendMDNSResponse(cdc_ecm, tx_buf);
                         continue;
                     }
 
                 } else if (destPort == 0xe914 && srcPort == 0xe914) {   // MDNS
+                    if (rx_len < 54)
+                        continue;
                     /* Handle DNS query from Host */
                     int flags = (rx_buf, short[])[22];
                     int queries = byterev((rx_buf, short[])[23]) >> 16;
-                    int index = 54;
-                    if (flags == 0) {
-                        for(int i = 0; i < queries; i++) {
-                            int qType, qFlag;
-                            int j = 0, matcher;
-                            for(j = 0; j < sizeof(localName); j++) {
-                                matcher = (rx_buf, unsigned char[])[index+j];
-                                if (matcher == 0 || matcher != localName[j]) {
-                                    break;
-                                }
+                    int index = 54;     /* First question, after the 12 byte DNS header */
+                    int askedForUs = 0;
+                    if (flags == 0) {   /* Standard query */
+                        /* Look through all the questions for our name. The question type
+                         * and class are not checked: hosts often ask for other record
+                         * types (e.g. AAAA) and may set the "unicast response" bit in the
+                         * class. The response holds our A record plus an NSEC record
+                         * stating that no other record types exist, which the host caches
+                         * whichever type it asked for */
+                        for(int i = 0; i < queries && index < rx_len; i++) {
+                            if (dnsNameIsLocal((rx_buf, unsigned char[]), rx_len, index)) {
+                                askedForUs = 1;
                             }
-                            if (matcher) {
-                                do {
-                                    j++;
-                                    matcher = (rx_buf, unsigned char[])[index+j];
-                                } while(matcher != 0);
-                                index += 4 + j;
-                                continue;
-                            }
-                            index += j+1;
-                            if ((rx_buf, unsigned char[])[index] == 0 &&
-                                (rx_buf, unsigned char[])[index+1] == 1 &&
-                                (rx_buf, unsigned char[])[index+2] == 0 &&
-                                (rx_buf, unsigned char[])[index+3] == 1) {
-
-                                tx_len = makeMDNSResponse(tx_buf);
-                                cdc_ecm.send_frame((tx_buf, unsigned char[]), tx_len);
-                                stats.total_tx_packets++;
-                                stats.total_tx_bytes += tx_len;
-                                tx_len = 0;
-                            }
-                            index += 4;
+                            /* Skip the name, QTYPE and QCLASS */
+                            index = dnsSkipName((rx_buf, unsigned char[]), rx_len, index) + 4;
                         }
+                    }
+                    if (askedForUs) {
+                        sendMDNSResponse(cdc_ecm, tx_buf);
                     }
                 }
             } else if (protocol == 0x6) { // TCP
@@ -343,6 +430,8 @@ void EthernetFrameHandler(client interface usb_cdc_ecm_if cdc_ecm)
                     tx_len = 0;
                 }
             } else if (protocol == 0x01) { // ICMP packet
+                if (rx_len < 42)
+                    continue;
                 stats.icmp_rx_packets++;
                 if(((rx_buf, unsigned int[])[3] == 0x00450008) &&
                         (((rx_buf, unsigned int[])[8] >> 16) == (0x0008))){
